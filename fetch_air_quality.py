@@ -283,3 +283,77 @@ output_df.to_csv(output_file, index=False)
 
 print(f"Process completed! Results saved to {output_file}")
 
+##############Number of bus and metro stations##############
+
+# Load the CSV file with GPS coordinates
+file_path = "GPS_Paris.csv"
+df = pd.read_csv(file_path)
+
+# Parameters
+RADIUS_METERS = 1000  # Search within 1 km radius
+API_URL = "https://places.googleapis.com/v1/places:searchNearby"
+
+# Function to count nearby places of a specific type
+def count_nearby_places(lat, lon, place_types, api_key):
+    headers = {
+        "Content-Type": "application/json",
+        "X-Goog-Api-Key": api_key,
+        "X-Goog-FieldMask": "places.displayName,places.types"
+    }
+    
+    data = {
+        "includedTypes": place_types,  # Search for specified place types
+        "locationRestriction": {
+            "circle": {
+                "center": {
+                    "latitude": lat,
+                    "longitude": lon
+                },
+                "radius": RADIUS_METERS  # Search radius in meters
+            }
+        }
+    }
+    
+    response = requests.post(API_URL, headers=headers, data=json.dumps(data))
+    
+    if response.status_code == 200:
+        results = response.json().get("places", [])
+        return len(results)  # Count the number of results
+    else:
+        print(f"Error fetching data for {lat}, {lon}: {response.status_code} - {response.text}")
+        return "N/A"
+
+# Process all GPS locations in the CSV file
+output_data = []
+for _, row in df.iterrows():
+    try:
+        arrond = row["Arrondissement"]
+        lat, lon = map(float, row["GPS"].split(", "))
+
+        # Count bus stations within the radius
+        bus_station_count = count_nearby_places(lat, lon, ["bus_station"], API_KEY)
+
+        # Count metro stations within the radius
+        metro_station_count = count_nearby_places(lat, lon, ["subway_station"], API_KEY)
+
+        # Append data
+        output_data.append({
+            "Arrondissement": arrond,
+            "Latitude": lat,
+            "Longitude": lon,
+            "BusStations1km": bus_station_count,
+            "MetroStations1km": metro_station_count,
+            "TotalStations1km": (bus_station_count if isinstance(bus_station_count, int) else 0) + 
+                                  (metro_station_count if isinstance(metro_station_count, int) else 0)
+        })
+
+    except ValueError:
+        print(f"Skipping invalid data: {row['GPS']}")
+
+# Save results to CSV
+output_file = "Stations_Count.csv"
+output_df = pd.DataFrame(output_data)
+output_df.to_csv(output_file, index=False)
+
+print(f"Process completed! Results saved to {output_file}")
+
