@@ -52,7 +52,7 @@ print(f"CSV file saved as: {csv_file_path}")
 
 ###############AIR QUAlITY DATA###################
 # Google API Key
-API_KEY = "API" #Please change to your own API. 
+API_KEY = "API" #########################Please change to your own API############################ 
 
 # Load the CSV file correctly
 file_path = "GPS_Paris.csv"
@@ -129,10 +129,6 @@ print(f"Air quality data saved to {output_csv}")
 
 #####################Car Speed##################
 
-# Load the CSV file with GPS coordinates
-file_path = "GPS_Paris.csv"
-df = pd.read_csv(file_path)
-
 # Parameters
 RADIUS_KM = 1  # 1 km radius
 NUM_POINTS = 50  # Generate 50 random points per location
@@ -207,10 +203,6 @@ print(f"Process completed! Results saved to {output_file}")
 
 #################Road Density##################
 
-# Load the CSV file with GPS coordinates
-file_path = "GPS_Paris.csv"
-df = pd.read_csv(file_path)
-
 # Parameters
 RADIUS_KM = 1  # 1 km radius
 NUM_POINTS = 50  # Generate 50 random points per location
@@ -284,10 +276,6 @@ output_df.to_csv(output_file, index=False)
 print(f"Process completed! Results saved to {output_file}")
 
 ##############Number of bus and metro stations##############
-
-# Load the CSV file with GPS coordinates
-file_path = "GPS_Paris.csv"
-df = pd.read_csv(file_path)
 
 # Parameters
 RADIUS_METERS = 1000  # Search within 1 km radius
