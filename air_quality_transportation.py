@@ -3,9 +3,12 @@ import requests
 import json
 import random
 import math
-#import time
+import time
 import folium
 from IPython.display import display
+from datetime import datetime
+
+
 ###############100 GPS locations################
 
 # Load the Excel file without assuming the first row as column names
@@ -344,4 +347,113 @@ output_df = pd.DataFrame(output_data)
 output_df.to_csv(output_file, index=False)
 
 print(f"Process completed! Results saved to {output_file}")
+
+#################Waiting Time########################
+
+# Load the GPS data from the CSV file
+csv_file_path = "GPS_Paris.csv"
+df = pd.read_csv(csv_file_path)
+
+# Clean GPS data
+df["GPS"] = df["GPS"].astype(str).str.strip().str.replace("\n", "", regex=True)
+df[["Latitude", "Longitude"]] = df["GPS"].str.split(",", expand=True)
+df["Latitude"] = pd.to_numeric(df["Latitude"], errors="coerce")
+df["Longitude"] = pd.to_numeric(df["Longitude"], errors="coerce")
+
+# Function to check if it's night when the metro is closed
+def is_metro_closed():
+    now = datetime.now()
+    if now.weekday() in [0, 1, 2, 3, 6]:  # Mon-Thu, Sun
+        return now.hour >= 0 and now.hour < 5.5  # 12:30 AM - 5:30 AM
+    elif now.weekday() in [4, 5]:  # Fri-Sat
+        return now.hour >= 1.25 and now.hour < 5.5  # 1:15 AM - 5:30 AM
+    return False
+
+# Function to find the nearest transit station (metro or night bus)
+def find_nearest_transit(lat, lon, transit_type="transit_station"):
+    url = f"https://maps.googleapis.com/maps/api/place/nearbysearch/json?location={lat},{lon}&radius=1000&type={transit_type}&key={API_KEY}"
+    response = requests.get(url).json()
+
+    if "results" in response and response["results"]:
+        place = response["results"][0]  # Pick the first nearby station
+        name = place["name"]
+        place_id = place["place_id"]
+        print(f"🚏 Nearest station: {name} (Place ID: {place_id})")
+        return place_id, name
+
+    print("⚠️ No nearby transit station found.")
+    return None, None
+
+# Function to get the next departure, considering metro closures
+def get_next_departure(lat, lon):
+    now_timestamp = int(time.time())  # Current time in UNIX format
+    future_timestamp = now_timestamp + 6 * 3600  # Look up to 6 hours ahead
+
+    # If metro is closed, search for night buses
+    if is_metro_closed():
+        print("🚇 Metro is closed. Searching for night bus...")
+        nearest_bus_stop_id, nearest_bus_stop_name = find_nearest_transit(lat, lon, "bus_station")
+        if not nearest_bus_stop_id:
+            print("❌ No night bus available. Metro reopens at 5:30 AM.")
+            return None, None, "Metro closed, next departure at 5:30 AM"
+
+
+    # Get the next transit departure (metro if open, night bus if metro is closed)
+    url = f"https://maps.googleapis.com/maps/api/directions/json?origin={lat},{lon}&destination={lat+0.01},{lon+0.01}&mode=transit&departure_time={future_timestamp}&key={API_KEY}"
+    response = requests.get(url).json()
+
+    if "routes" in response and response["routes"]:
+        for leg in response["routes"][0]["legs"]:
+            for step in leg["steps"]:
+                if step["travel_mode"] == "TRANSIT":
+                    transit_details = step["transit_details"]
+                    departure_time = transit_details["departure_time"]["text"]
+                    departure_unix = transit_details["departure_time"]["value"]
+                    waiting_time = max(0, (departure_unix - now_timestamp) // 60)  # Convert seconds to minutes
+
+                    departure_stop = transit_details["departure_stop"]["name"]
+                    arrival_stop = transit_details["arrival_stop"]["name"]
+
+                    print(f"🕒 Next departure from {departure_stop} at {departure_time} (Waiting time: {waiting_time} min)")
+                    return departure_stop, arrival_stop, waiting_time
+
+    print("⚠️ No transit departures found.")
+    return None, None, "N/A"
+
+# Process each GPS location from the file
+output_data = []
+
+
+for _, row in df.iterrows():
+    arrondissement = row["Arrondissement"]
+    lat, lon = row["Latitude"], row["Longitude"]
+    
+    print(f"\n🔹 Processing location: {arrondissement}, {lat}, {lon}")
+
+    # 1. Find nearest transit station
+    nearest_station_id, nearest_station_name = find_nearest_transit(lat, lon)
+
+    if not nearest_station_id:
+        output_data.append([arrondissement, lat, lon, "N/A", "N/A", "N/A"])
+        continue  # Skip to next row
+
+    # 2. Get the next departure time and waiting time
+    departure_stop, arrival_stop, waiting_time = get_next_departure(lat, lon)
+
+    if not departure_stop:
+        output_data.append([arrondissement, lat, lon, nearest_station_name, "N/A", "N/A"])
+        continue  # Skip to next row
+
+    # Save results
+    output_data.append([arrondissement, lat, lon, departure_stop, arrival_stop, waiting_time])
+
+    # Delay between API calls to avoid hitting rate limits
+    time.sleep(1)
+
+# Save output to CSV in the correct format
+output_csv_path = "transit_wait_times_fixed.csv"
+df_output = pd.DataFrame(output_data, columns=["Arrondissement", "Latitude", "Longitude", "DepartureStop", "ArrivalStop", "WaitingTime (min)"])
+df_output.to_csv(output_csv_path, index=False)
+
+print(f"\n CSV saved: {output_csv_path}")
 
