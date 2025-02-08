@@ -387,7 +387,7 @@ def find_nearest_transit(lat, lon, transit_type="transit_station"):
 # Function to get the next departure, considering metro closures
 def get_next_departure(lat, lon):
     now_timestamp = int(time.time())  # Current time in UNIX format
-    future_timestamp = now_timestamp + 6 * 3600  # Look up to 6 hours ahead
+    future_timestamp = now_timestamp
 
     # If metro is closed, search for night buses
     if is_metro_closed():
