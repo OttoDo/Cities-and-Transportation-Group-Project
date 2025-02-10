@@ -132,47 +132,49 @@ print(f"Air quality data saved to {output_csv}")
 
 #####################Car Speed##################
 
-# Parameters
-RADIUS_KM = 1  # 1 km radius
-NUM_POINTS = 50  # Generate 50 random points per location
-API_URL = "https://roads.googleapis.com/v1/nearestRoads"
+# Load the CSV file with GPS coordinates
+file_path = "GPS_Paris.csv"
+df = pd.read_csv(file_path)
 
-# Function to generate random GPS points within a radius
-def generate_random_points(center_lat, center_lon, radius_km, num_points):
-    points = []
-    for _ in range(num_points):
-        angle = random.uniform(0, 2 * math.pi)  # Random direction
-        distance_km = random.uniform(0, radius_km)  # Random distance within radius
-        delta_lat = (distance_km / 111) * math.cos(angle)  # Convert km to degrees latitude
-        delta_lon = (distance_km / (111 * math.cos(math.radians(center_lat)))) * math.sin(angle)  # Convert km to degrees longitude
-        points.append(f"{center_lat + delta_lat},{center_lon + delta_lon}")
-    return "|".join(points)
+# API Endpoints
+ROADS_API_URL = "https://roads.googleapis.com/v1/nearestRoads"
+DIRECTIONS_API_URL = "https://maps.googleapis.com/maps/api/directions/json"
 
-# Function to count unique roads by placeId near a location
-def count_unique_roads_by_placeId(lat, lon, api_key):
-    # Generate 50 random points in 1 km radius
-    random_points = generate_random_points(lat, lon, RADIUS_KM, NUM_POINTS)
-
-    # Google Roads API Request
-    url = f"{API_URL}?points={random_points}&key={api_key}"
-    
+# Function to find the closest road segment using Roads API
+def get_nearest_road(lat, lon, api_key):
+    url = f"{ROADS_API_URL}?points={lat},{lon}&key={api_key}"
     response = requests.get(url)
-    
+
     if response.status_code == 200:
         data = response.json()
-        unique_roads = set()  # Using a set to ensure uniqueness of road segments
+        snapped_points = data.get("snappedPoints", [])
+        if snapped_points:
+            snapped_location = snapped_points[0]["location"]
+            return snapped_location["latitude"], snapped_location["longitude"]
+    
+    print(f"Error fetching nearest road for {lat}, {lon}: {response.status_code} - {response.text}")
+    return lat, lon  # Fallback to original coordinates if snapping fails
 
-        # Extract unique road segments from API response
-        for point in data.get("snappedPoints", []):
-            place_id = point.get("placeId")
-            if place_id:  # Only add valid placeIds
-                unique_roads.add(place_id)
+# Function to get travel time, distance, and speed on the closest road segment
+def get_car_travel_data(snapped_lat, snapped_lon, api_key):
+    dest_lat = snapped_lat + 0.0005  # Offset destination slightly to avoid same point issue
+    dest_lon = snapped_lon + 0.0005
+    
+    url = f"{DIRECTIONS_API_URL}?origin={snapped_lat},{snapped_lon}&destination={dest_lat},{dest_lon}&mode=driving&key={api_key}"
+    response = requests.get(url)
 
-        # Return the average number of unique roads per random point
-        return len(unique_roads) / NUM_POINTS
-    else:
-        print(f"Error fetching data for {lat}, {lon}: {response.status_code} - {response.text}")
-        return "N/A"
+    if response.status_code == 200:
+        data = response.json()
+        if "routes" in data and data["routes"]:
+            legs = data["routes"][0]["legs"]
+            if legs:
+                distance_m = legs[0]["distance"]["value"]  # Distance in meters
+                duration_s = legs[0]["duration"]["value"]  # Duration in seconds
+                speed_kmh = round((distance_m / duration_s) * 3.6, 2) if duration_s > 0 else "N/A"  # Convert m/s to km/h
+                return duration_s, distance_m, speed_kmh
+
+    print(f"Error fetching travel data for {snapped_lat}, {snapped_lon}: {response.status_code} - {response.text}")
+    return "N/A", "N/A", "N/A"
 
 # Process all GPS locations in the CSV file
 output_data = []
@@ -181,33 +183,39 @@ for _, row in df.iterrows():
         arrond = row["Arrondissement"]
         lat, lon = map(float, row["GPS"].split(", "))
 
-        # Find average number of unique roads per random point
-        unique_road_avg = count_unique_roads_by_placeId(lat, lon, API_KEY)
+        # Find nearest road segment
+        snapped_lat, snapped_lon = get_nearest_road(lat, lon, API_KEY)
+
+        # Get travel time, distance, and speed on the nearest road segment
+        travel_time, travel_distance, car_speed = get_car_travel_data(snapped_lat, snapped_lon, API_KEY)
 
         # Append data
         output_data.append({
             "Arrondissement": arrond,
             "Latitude": lat,
             "Longitude": lon,
-            "AvgUniqueRoads1kmRadius": unique_road_avg
+            "SnappedLatitude": snapped_lat,
+            "SnappedLongitude": snapped_lon,
+            "TravelTimeSeconds": travel_time,
+            "TravelDistanceMeters": travel_distance,
+            "SpeedKmh": car_speed
         })
-
-        #time.sleep(1)  # To avoid exceeding API rate limits
 
     except ValueError:
         print(f"Skipping invalid data: {row['GPS']}")
 
-# Save results to CSV
-output_file = "Avg_Unique_Roads_By_PlaceId.csv"
+# Save results to separate CSV file
+output_file = "Car_Travel_Speed_Snapped.csv"
 output_df = pd.DataFrame(output_data)
 output_df.to_csv(output_file, index=False)
 
 print(f"Process completed! Results saved to {output_file}")
 
+
 #################Road Density##################
 
 # Parameters
-RADIUS_KM = 1  # 1 km radius
+RADIUS_KM = 0.5  # 1 km radius
 NUM_POINTS = 50  # Generate 50 random points per location
 API_URL = "https://roads.googleapis.com/v1/nearestRoads"
 
@@ -281,7 +289,7 @@ print(f"Process completed! Results saved to {output_file}")
 ##############Number of bus and metro stations##############
 
 # Parameters
-RADIUS_METERS = 1000  # Search within 1 km radius
+RADIUS_METERS = 500  # Search within 500 m radius
 API_URL = "https://places.googleapis.com/v1/places:searchNearby"
 
 # Function to count nearby places of a specific type
