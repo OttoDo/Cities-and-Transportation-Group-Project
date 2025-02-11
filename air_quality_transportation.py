@@ -49,7 +49,7 @@ for _, row in df.iterrows():
 display(m)
 
 # Print the number of dots drawn
-print(f"Number of dots drawn: {dot_count}")
+#print(f"Number of dots drawn: {dot_count}")
 print(f"CSV file saved as: {csv_file_path}")
 
 
