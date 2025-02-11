@@ -271,7 +271,7 @@ for _, row in df.iterrows():
             "Arrondissement": arrond,
             "Latitude": lat,
             "Longitude": lon,
-            "AvgUniqueRoads1kmRadius": unique_road_avg
+            "AvgUniqueRoads500mRadius": unique_road_avg
         })
 
         #time.sleep(1)  # To avoid exceeding API rate limits
