@@ -215,7 +215,7 @@ print(f"Process completed! Results saved to {output_file}")
 #################Road Density##################
 
 # Parameters
-RADIUS_KM = 0.5  # 1 km radius
+RADIUS_KM = 0.5  # 0.5 km radius
 NUM_POINTS = 50  # Generate 50 random points per location
 API_URL = "https://roads.googleapis.com/v1/nearestRoads"
 
@@ -232,7 +232,7 @@ def generate_random_points(center_lat, center_lon, radius_km, num_points):
 
 # Function to count unique roads by placeId near a location
 def count_unique_roads_by_placeId(lat, lon, api_key):
-    # Generate 50 random points in 1 km radius
+    # Generate 50 random points in 0.5 km radius
     random_points = generate_random_points(lat, lon, RADIUS_KM, NUM_POINTS)
 
     # Google Roads API Request
@@ -340,9 +340,9 @@ for _, row in df.iterrows():
             "Arrondissement": arrond,
             "Latitude": lat,
             "Longitude": lon,
-            "BusStations1km": bus_station_count,
-            "MetroStations1km": metro_station_count,
-            "TotalStations1km": (bus_station_count if isinstance(bus_station_count, int) else 0) + 
+            "BusStations500m": bus_station_count,
+            "MetroStations500m": metro_station_count,
+            "TotalStations500m": (bus_station_count if isinstance(bus_station_count, int) else 0) + 
                                   (metro_station_count if isinstance(metro_station_count, int) else 0)
         })
 
