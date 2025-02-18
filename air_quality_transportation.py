@@ -56,6 +56,10 @@ print(f"CSV file saved as: {csv_file_path}")
 ###############AIR QUAlITY DATA###################
 # Google API Key
 API_KEY = "API" #########################Please change to your own API############################ 
+#For security and compliance reasons, I am unable to share the Google API key directly, 
+#as it is tied to a personal account and has usage limits. 
+#However, the methodology and code for data collection are fully documented in the Jupyter notebook and GitHub repository, 
+#so the process can be reviewed and replicated if needed.
 
 # Load the CSV file correctly
 file_path = "GPS_Paris.csv"
